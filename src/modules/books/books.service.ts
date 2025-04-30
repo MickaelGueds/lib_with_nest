@@ -89,16 +89,68 @@ export class BooksService {
       }
       authorId = author.id 
     }
+
+    const { authorName, ...dataToUpdate } = updateBookDto
     
+    const updatedBook = await this.prisma.book.update({
+      where: {
+        id
+      },
+      data: {
+        ...dataToUpdate,
+        ...(authorId && {authorId})
+      },
+      include: {author:true}
+    })
+    
+    return updatedBook
     
   }
 
+  async remove(id: string) {
+    const bookdeleted = await this.prisma.book.findUnique({
+      where: {
+        id
+      }
+    }
+    )
+    if (!bookdeleted) {
+      throw new NotFoundException('Livro não encontrado...')
+    }
 
+    await this.prisma.book.delete({
+      where: {
+        id
+      }
+    })
+  }
 
-  async remove()
+  //paremetro tem que receber os dados dos livros um findall por cima e depois fazer um laço para retornar apenas o que nao foram emprestados que ta em outro schema
+  async findAvailableBooks() {
+    const books = await this.prisma.book.findMany({
+      include: {
+        author: true,
+        loans: {
+          where: { status: 'ACTIVE'}
+        }
+      }
+    })
+    const availableBooks = books.filter(book => book.quantity > book.loans.length)
 
-
-
-
+    return availableBooks
+  }
+  
+  async loanedBooks() {
+    let books = await this.prisma.book.findMany({
+      include: {
+        author: true,
+        loans: {
+          where: { status: 'ACTIVE'}
+        }
+      }
+    })
+    const LoanedBooks = books.filter(book => book.quantity <= book.loans.length)
+    return LoanedBooks
+  }
 
 }
